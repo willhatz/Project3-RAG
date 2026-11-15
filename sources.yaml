@@ -1,0 +1,102 @@
+# =============================================================================
+# sources.yaml — the single list of everything the chatbot knows (Story 5)
+#
+# To ADD a source:     add an entry below, then run:  python -m ingest --source <id>
+# To UPDATE a source:  re-run:                         python -m ingest --source <id>
+#                      (its old chunks are replaced, nothing is duplicated)
+# To REMOVE a source:  set `enabled: false` (or delete it), then run:  python -m ingest
+#                      (a full run prunes chunks from sources that are no longer enabled)
+#
+# Every source needs: id (unique, snake_case), method, region, event.
+#   method: ifrc_go    -> IFRC GO API, no key needed        (ingestion method #1: API)
+#           scrape     -> web pages / PDFs                  (ingestion method #2: scraping)
+#           file       -> a file saved by hand in data/manual (method #3: for sites that block scripts)
+#   region: sri_lanka | valencia
+#   event:  cyclone_ditwah | valencia_dana | general (evergreen preparedness information)
+# =============================================================================
+
+settings:
+  chunk_tokens: 500      # max tokens per chunk (bge-m3 tokenizer)
+  chunk_overlap: 50      # tokens shared between neighbouring chunks
+  min_chars: 200         # documents shorter than this after cleaning are dropped
+
+sources:
+
+  # ---------------------------------------------------------------------------
+  # Method 1: IFRC GO API  (https://goadmin.ifrc.org/api/v2/ — public, no key)
+  # Find event ids with: https://goadmin.ifrc.org/api/v2/event/?search=<keyword>
+  # ---------------------------------------------------------------------------
+  - id: ifrc_ditwah
+    method: ifrc_go
+    region: sri_lanka
+    event: cyclone_ditwah
+    description: IFRC overview, field reports and appeal documents for Tropical Cyclone Ditwah (GO event 7713)
+    event_id: 7713
+    appeal_documents: 5          # newest N appeal PDFs (Emergency Appeal, DREF, operations updates); 0 = none
+
+  - id: ifrc_dana
+    method: ifrc_go
+    region: valencia
+    event: valencia_dana
+    description: IFRC overview and field report for the Valencia DANA floods (GO event 7200)
+    event_id: 7200
+    appeal_documents: 0          # no IFRC appeal was launched for this event
+
+  # ---------------------------------------------------------------------------
+  # Method 2: Web scraping  (respects robots.txt and crawl-delay)
+  # ---------------------------------------------------------------------------
+  - id: publico_dana_vulnerables
+    method: scrape
+    region: valencia
+    event: valencia_dana
+    description: "Público — Vulnerables por partida doble (families without resources after the DANA)"
+    url: "https://www.publico.es/sociedad/vulnerables-partida-doble-familias-recursos-han-perdido-dana.html"
+
+  - id: gva_dana_aid
+    method: scrape
+    region: valencia
+    event: valencia_dana
+    description: Generalitat Valenciana — DANA aid programmes (state, regional, municipal), in Valencian
+    url: "https://recuperacio.gva.es/va/convocatoria-ajudes-dana"
+    follow_links:
+      pattern: "recuperacio\\.gva\\.es/va/ajudes-"   # follow the aid sub-pages linked from the index
+      max: 5
+
+  - id: dmc_ditwah_situation_reports
+    method: scrape
+    region: sri_lanka
+    event: cyclone_ditwah
+    description: Sri Lanka Disaster Management Centre situation reports, 25 Nov - 10 Dec 2025 (PDF)
+    title: "Disaster Management Centre Sri Lanka - Situation Report"   # date is appended automatically
+    # Excluded: Situation_Summary_Report_at_1800hrs_on_2025__1764350609.pdf (2025-11-28) uses a legacy
+    # non-Unicode Sinhala font, so its extracted text is unreadable.
+    urls:
+      - "https://www.dmc.gov.lk/images/dmcreports/Situation_Report_on_2025__1764048511.pdf"                 # 2025-11-25 10:00
+      - "https://www.dmc.gov.lk/images/dmcreports/Situation_Report_on_2025__1764133532.pdf"                 # 2025-11-26 10:00
+      - "https://www.dmc.gov.lk/images/dmcreports/Situation_Report_at_0600hrs_on_2025__1764729520.pdf"      # 2025-12-03 06:00
+      - "https://www.dmc.gov.lk/images/dmcreports/Situation_Report_at_0600hrs_on_2025__1764898696.pdf"      # 2025-12-05 06:00
+      - "https://www.dmc.gov.lk/images/dmcreports/Situation_Report_at_0600hrs_on_2025__1765154945.pdf"      # 2025-12-08 06:00
+      - "https://www.dmc.gov.lk/images/dmcreports/Situation_Report_at_0600hrs_on_2025__1765241453.pdf"      # 2025-12-09 06:00
+      - "https://www.dmc.gov.lk/images/dmcreports/Situation_Report_at_1200hrs_on_2025__1765355033.pdf"      # 2025-12-10 12:00
+
+  - id: dmc_early_warning_ta
+    method: scrape
+    region: sri_lanka
+    event: general
+    description: DMC — Early Warning Systems, in Tamil (how warnings are issued and disseminated)
+    url: "https://www.dmc.gov.lk/index.php?option=com_content&view=article&id=60&Itemid=225&lang=ta"
+
+  # ---------------------------------------------------------------------------
+  # Method 3: Local files (sites that block automated access — save the text in data/manual/)
+  # ---------------------------------------------------------------------------
+  - id: tnh_tamil_warnings
+    method: file
+    region: sri_lanka
+    event: cyclone_ditwah
+    description: "The New Humanitarian — Lost in translation (site returns HTTP 403 to scripts)"
+    path: data/manual/tnh_tamil_warnings.txt
+    url: "https://www.thenewhumanitarian.org/news-feature/2025/12/18/lost-translation-how-sri-lankas-tamils-face-repeated-disaster-warning"
+    title: "Lost in translation: How Sri Lanka's Tamils face repeated disaster warning failures"
+    published: "2025-12-18"
+    publisher: The New Humanitarian
+    language: en
