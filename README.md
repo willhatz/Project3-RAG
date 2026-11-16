@@ -76,6 +76,20 @@ identifies itself as a non-commercial student project.
 - ~500-token chunks with 50-token overlap, counted with the bge-m3 tokenizer, ending on sentence boundaries
 - Metadata on every chunk: `source_id, url, title, published, language, publisher, region, event, method, chunk_index, ingested_at`
 
+## Sources shown with every answer (Story 4)
+
+`chat/sources.py`, used by `chat/answer.py` and the web page (`chatbot/`):
+
+- Every answer comes back with the documents it was generated from: citation number, title, publisher,
+  publication date, original language, link, and the exact passage the model was given
+- The `[1]`, `[2]` markers in the answer match the numbers in the source list; markers that point to no
+  supplied source, and any bibliography the model writes itself, are removed
+- If the answer cites nothing, the top retrieved documents are shown instead and labelled as not cited
+- Web page: `python manage.py runserver` (needs Ollama running with the model named in `chat/answer.py`),
+  then open http://127.0.0.1:8000 - the sources appear under the answer, each with "Show the passage used"
+- Command line: `python -m chat.answer --show-evidence`
+- From code: `generate_answer(question, event)` returns an `Answer` with `.text`, `.sources` and `.to_dict()`
+
 ## Using the knowledge base from the chat backend (Story 2)
 
 ```python
