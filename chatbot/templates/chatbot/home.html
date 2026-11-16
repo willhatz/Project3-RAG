@@ -1,0 +1,101 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Disaster Information Chatbot</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6fa;
+            margin: 0;
+            padding: 30px 15px;
+            color: #172333;
+        }
+        .container {
+            max-width: 780px;
+            margin: auto;
+            background: white;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px #00000012;
+        }
+        h1 { margin-bottom: 8px; }
+        .subtitle { color: #64748b; }
+        label {
+            display: block;
+            margin: 22px 0 8px;
+            font-weight: bold;
+        }
+        select, textarea {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 12px;
+            font-size: 16px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+        }
+        textarea { resize: vertical; }
+        button {
+            margin-top: 15px;
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 13px 24px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        button:hover { background: #1d4ed8; }
+        .answer {
+            margin-top: 25px;
+            padding: 20px;
+            background: #f1f5f9;
+            border-radius: 10px;
+            line-height: 1.7;
+            overflow-wrap: anywhere;
+        }
+        .answer a { color: #1d4ed8; }
+    </style>
+</head>
+<body>
+    <main class="container">
+        <h1>Disaster Information Chatbot</h1>
+        <p class="subtitle">
+            Ask questions about natural disasters
+            in English, Tamil, or Spanish.
+        </p>
+
+        <form method="POST">
+            {% csrf_token %}
+
+            <label for="event">Select Disaster</label>
+            <select id="event" name="event">
+                <option value="cyclone_ditwah"
+                    {% if event == "cyclone_ditwah" %}selected{% endif %}>
+                    Cyclone Ditwah — Sri Lanka
+                </option>
+                <option value="valencia_dana"
+                    {% if event == "valencia_dana" %}selected{% endif %}>
+                    Valencia DANA Floods — Spain
+                </option>
+            </select>
+
+            <label for="question">Your Question</label>
+            <textarea id="question" name="question"
+                rows="4" required
+                placeholder="Ask your question...">{{ question }}</textarea>
+
+            <button type="submit">Ask Chatbot</button>
+        </form>
+
+        {% if answer %}
+        <div class="answer">
+            <h3>Chatbot Answer</h3>
+            {{ answer|urlize|linebreaksbr }}
+        </div>
+        {% endif %}
+    </main>
+</body>
+</html>
