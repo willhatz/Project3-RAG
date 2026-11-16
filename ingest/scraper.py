@@ -2,7 +2,7 @@
 
 - Checks robots.txt before every request and honours Crawl-delay (minimum 2 s per site).
 - HTML: main article text and metadata extracted with trafilatura (drops menus, ads, footers).
-- PDF:  text extracted with pypdf.
+- PDF:  text extracted with pypdf; page numbers and running headers/footers removed, wrapped lines re-joined.
 - ``follow_links`` in sources.yaml lets one entry pull in the pages/PDFs linked from an index page.
 """
 
@@ -18,6 +18,7 @@ from urllib.parse import urldefrag, urljoin, urlparse
 
 import requests
 
+from .clean import clean_pdf_pages
 from .config import Settings, Source
 from .errors import IngestError
 from .models import Document, make_doc_id
@@ -122,8 +123,7 @@ def read_pdf(content: bytes) -> dict:
     from pypdf import PdfReader
 
     reader = PdfReader(io.BytesIO(content))
-    pages = [(page.extract_text() or "") for page in reader.pages]
-    text = "\n\n".join(p.strip() for p in pages if p.strip())
+    text = clean_pdf_pages([(page.extract_text() or "") for page in reader.pages])
 
     lines = [ln.strip() for ln in text.splitlines() if ln.strip()][:2]
     title = " - ".join(ln for ln in lines if len(ln) <= 80) or None

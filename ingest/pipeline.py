@@ -9,7 +9,7 @@ from pathlib import Path
 
 from . import ifrc, local_files, scraper
 from .chunk import chunk_documents
-from .clean import clean_documents
+from .clean import clean_documents, content_hash
 from .config import DEFAULT_SOURCES_PATH, Settings, Source, load_config
 from .errors import IngestError, IngestSkipped
 from .models import Document
@@ -64,7 +64,12 @@ def run(
             log.info("Rebuild requested: clearing the knowledge base")
             store.reset()
 
+    # De-duplication is global. When only some sources are refreshed, the others are not re-fetched, so
+    # their documents are taken from the processed files of their last run.
     seen_hashes: set[str] = set()
+    if only:
+        selected_ids = {s.id for s in selected}
+        seen_hashes = _processed_hashes(settings.processed_dir, [s.id for s in enabled if s.id not in selected_ids])
     reports = [_ingest_source(src, settings, seen_hashes, store, embedder) for src in selected]
 
     # A full run also removes sources that were disabled or deleted from sources.yaml.
@@ -104,6 +109,21 @@ def _ingest_source(source: Source, settings: Settings, seen_hashes, store, embed
         store.replace_source(source.id, chunks)
         report.chunks = len(chunks)
     return report
+
+
+def _processed_hashes(directory: Path, source_ids: list[str]) -> set[str]:
+    hashes: set[str] = set()
+    for source_id in source_ids:
+        path = directory / f"{source_id}.jsonl"
+        if not path.exists():
+            continue
+        with path.open(encoding="utf-8") as f:
+            for line in f:
+                try:
+                    hashes.add(content_hash(json.loads(line)["text"]))
+                except (ValueError, KeyError, TypeError):   # hand-edited or truncated line
+                    continue
+    return hashes
 
 
 def _write_processed(directory: Path, source_id: str, docs: list[Document]) -> None:

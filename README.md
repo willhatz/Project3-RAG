@@ -66,9 +66,13 @@ identifies itself as a non-commercial student project.
 
 - Unicode NFC normalisation; removes invisible characters but **keeps ZWJ/ZWNJ** (Sinhala and Tamil need them)
 - HTML/Markdown stripping for API text fields and `.md` files; trafilatura removes menus, ads and footers from web pages
+- Boilerplate lines removed: share-button labels, "read more" links, filler rules (`_____`), lines with no letters or digits
+- PDFs: page numbers and running headers/footers removed; hard-wrapped lines joined back into paragraphs
+  (and line-end hyphens repaired) so chunks end on real sentence ends rather than line wraps
 - Language tagging: script detection for Sinhala/Tamil/Arabic, `langdetect` for the rest
   (Valencian is tagged `ca`, the shared ISO code for Catalan/Valencian)
 - Drops documents under `min_chars` and exact/near-exact duplicates across all sources
+  (a `--source` run compares against the other sources' files in `data/processed/`)
 - ~500-token chunks with 50-token overlap, counted with the bge-m3 tokenizer, ending on sentence boundaries
 - Metadata on every chunk: `source_id, url, title, published, language, publisher, region, event, method, chunk_index, ingested_at`
 
