@@ -3,6 +3,8 @@ import re
 import sys
 import requests
 from chat.retriever import retrieve
+from chat.sources import (Answer, build_context, build_sources, select_sources,
+                          strip_invalid_citations)
 
 MODEL = "qwen2.5:3b"
 URL = "http://localhost:11434/api/chat"
@@ -51,16 +53,22 @@ def is_off_topic(question):
 
 
 def answer_question(question, event="cyclone_ditwah", show_evidence=False):
+    """Plain-text answer followed by its sources (used by the command line)."""
+    return generate_answer(question, event).render(show_evidence)
+
+
+def generate_answer(question, event="cyclone_ditwah"):
+    """Answer plus the sources it was generated from (User Story 4), as a chat.sources.Answer."""
     question = question.strip()
 
     if not question:
-        return "Please enter a question."
+        return Answer("Please enter a question.")
 
     if event not in ("cyclone_ditwah", "valencia_dana"):
-        return "Invalid disaster selected."
+        return Answer("Invalid disaster selected.")
 
     if is_off_topic(question):
-        return (
+        return Answer(
             "I'm a disaster-information chatbot for Cyclone Ditwah in Sri Lanka "
             "and the Valencia DANA floods in Spain. "
             "Please ask a question related to either disaster."
@@ -85,44 +93,12 @@ def answer_question(question, event="cyclone_ditwah", show_evidence=False):
     )
 
     try:
-        sources = {}
+        docs = build_sources(retrieve(search_question, event=event, limit=6))
 
-        for match in retrieve(search_question, event=event, limit=6):
-            meta = match.get("metadata") or {}
-            text = " ".join(
-                (match.get("text") or "").split()
-            )[:1100]
+        if not docs:
+            return Answer("No relevant documents found.")
 
-            if not text:
-                continue
-
-            key = (
-                meta.get("url")
-                or meta.get("source_id")
-                or meta.get("title")
-            )
-
-            if key not in sources and len(sources) >= 5:
-                continue
-
-            source = sources.setdefault(key, {
-                "title": meta.get("title", "Unknown"),
-                "url": meta.get("url", ""),
-                "texts": []
-            })
-
-            if text not in source["texts"] and not source["texts"]:
-                source["texts"].append(text)
-
-        if not sources:
-            return "No relevant documents found."
-
-        docs = list(sources.values())
-
-        context = "\n\n".join(
-            f"SOURCE [{i}]: {s['title']}\n{s['texts'][0]}"
-            for i, s in enumerate(docs, 1)
-        )
+        context = build_context(docs)
 
         # Generate English answer from the retrieved documents.
         answer = ask(
@@ -145,15 +121,7 @@ def answer_question(question, event="cyclone_ditwah", show_evidence=False):
         )[0].strip()
 
         # Remove invalid source numbers.
-        answer = re.sub(
-            r"\[(\d+)\]",
-            lambda m: (
-                m.group()
-                if 1 <= int(m.group(1)) <= len(docs)
-                else ""
-            ),
-            answer
-        )
+        answer = strip_invalid_citations(answer, len(docs))
 
         # Translate only when necessary.
         if tamil or spanish:
@@ -179,7 +147,7 @@ def answer_question(question, event="cyclone_ditwah", show_evidence=False):
             elif tamil and warning_question:
                 # Preserve the Tamil warning fallback.
                 for i, source in enumerate(docs, 1):
-                    evidence = " ".join(source["texts"]).lower()
+                    evidence = source.passage.lower()
 
                     if all(word in evidence for word in (
                         "warning", "tamil", "sinhala", "english"
@@ -208,40 +176,13 @@ def answer_question(question, event="cyclone_ditwah", show_evidence=False):
                     else "Translation failed. English answer:\n"
                 ) + answer
 
-        # Display real source links.
-        cited = sorted({
-            int(n)
-            for n in re.findall(r"\[(\d+)\]", answer)
-            if 1 <= int(n) <= len(docs)
-        })
-
-        label = (
-            "Sources cited:"
-            if cited
-            else "Retrieved sources (not verified citations):"
-        )
-
-        lines = [answer, "", label]
-
-        for i in (
-            cited or range(1, min(3, len(docs)) + 1)
-        ):
-            source = docs[i - 1]
-
-            lines.append(
-                f"[{i}] {source['title']} - {source['url']}"
-            )
-
-            if show_evidence:
-                lines.append(
-                    "Evidence: " + source["texts"][0]
-                )
-
-        return "\n".join(lines)
+        # Attach the real sources (never a model-written bibliography).
+        shown, cited = select_sources(answer, docs)
+        return Answer(answer, shown, cited)
 
     except (requests.RequestException, KeyError,
             ValueError, TypeError) as e:
-        return f"Chatbot error: {e}"
+        return Answer(f"Chatbot error: {e}")
 
 
 if __name__ == "__main__":
