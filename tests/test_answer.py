@@ -1,4 +1,4 @@
-"""User Story 4: answers come back with the sources they were generated from (no Ollama, no model)."""
+"""User Story 4: answers come back with the sources they were generated from (no live LLM)."""
 
 import pytest
 
@@ -16,7 +16,7 @@ MATCHES = [
 
 @pytest.fixture
 def fake_llm(monkeypatch):
-    """Replaces retrieval and the Ollama call; returns the list of prompts the 'model' received."""
+    """Replaces retrieval and the LLM call; returns the list of prompts the 'model' received."""
     prompts = []
     state = {"reply": "643 people died [1].", "matches": MATCHES}
 

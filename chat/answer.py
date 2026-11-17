@@ -1,32 +1,49 @@
 
+import os
 import re
 import sys
+from pathlib import Path
+
 import requests
+from dotenv import load_dotenv
+
 from chat.retriever import retrieve
 from chat.sources import (Answer, build_context, build_sources, select_sources,
                           strip_invalid_citations)
 
-MODEL = "qwen2.5:3b"
-URL = "http://localhost:11434/api/chat"
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+
+GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 
 
 def ask(system, message):
-    response = requests.post(URL, json={
-        "model": MODEL,
-        "stream": False,
-        "messages": [
-            {"role": "system", "content": system},
-            {"role": "user", "content": message}
-        ],
-        "options": {"temperature": 0, "num_ctx": 4096}
-    }, timeout=300)
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        raise ValueError("GROQ_API_KEY is not set (add it to .env)")
 
+    response = requests.post(
+        GROQ_URL,
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": MODEL,
+            "temperature": 0,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": message},
+            ],
+        },
+        timeout=120,
+    )
     response.raise_for_status()
-    return response.json()["message"]["content"].strip()
+    return response.json()["choices"][0]["message"]["content"].strip()
 
 
 def is_off_topic(question):
-    # Clearly relevant questions skip an extra Ollama call.
+    # Clearly relevant questions skip an extra LLM call.
     relevant = (
         "ditwah", "cyclone", "dana", "valencia", "sri lanka",
         "flood", "landslide", "evacuat", "disaster warning",

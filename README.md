@@ -21,7 +21,8 @@ pip install -r requirements.txt
 cp .env.example .env        # optional: only to override defaults
 ```
 
-No API keys are required: the IFRC GO API is public.
+The IFRC GO API is public (no key). Chat answers need a **Groq API key** (`GROQ_API_KEY` in `.env`);
+sign up at https://console.groq.com/.
 
 **Embedding model:** the first non-dry run downloads `BAAI/bge-m3` (~2.3 GB) into the Hugging Face cache.
 
@@ -85,8 +86,8 @@ identifies itself as a non-commercial student project.
 - The `[1]`, `[2]` markers in the answer match the numbers in the source list; markers that point to no
   supplied source, and any bibliography the model writes itself, are removed
 - If the answer cites nothing, the top retrieved documents are shown instead and labelled as not cited
-- Web page: `python manage.py runserver` (needs Ollama running with the model named in `chat/answer.py`),
-  then open http://127.0.0.1:8000 - the sources appear under the answer, each with "Show the passage used"
+- Web page: set `GROQ_API_KEY` in `.env`, run `python manage.py runserver`, then open http://127.0.0.1:8000 -
+  the sources appear under the answer, each with "Show the passage used"
 - Command line: `python -m chat.answer --show-evidence`
 - From code: `generate_answer(question, event)` returns an `Answer` with `.text`, `.sources` and `.to_dict()`
 
